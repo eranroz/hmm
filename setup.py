@@ -1,4 +1,5 @@
 from setuptools import setup
+import numpy as np
 from Cython.Build import cythonize
 from Cython.Distutils import build_ext
 
@@ -14,6 +15,7 @@ setup(
     ext_modules=cythonize(['hmm_kit/_hmmc.pyx']),
     requires=['cython', 'matplotlib'],
     scripts=['scripts/simple_hmm.py'],
+    include_dirs=[np.get_include()],
     build_ext=build_ext,
     classifiers=[
         'License :: OSI Approved :: MIT License',
