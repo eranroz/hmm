@@ -4,8 +4,6 @@ import hmm_kit.HMMModel
 
 
 class HmmTest(unittest.TestCase):
-    def test_something(self):
-        self.assertEqual(True, False)
 
     def test_viterbi(self):
         """

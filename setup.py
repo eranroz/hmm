@@ -24,7 +24,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='hmm_kit',
     ext_modules=ext_modules,
-    version='0.1.1',
+    version='0.2.0',
     description='Python toolkit for unsupervised learning of sequences of observations using HMM',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -33,7 +33,7 @@ setuptools.setup(
     url='https://github.com/eranroz/hmm',
     license='MIT License',
     packages=['hmm_kit'],
-    install_requires=['matplotlib', 'numpy'],
+    install_requires=['matplotlib', 'numpy', 'scipy'],
     scripts=['scripts/simple_hmm.py'],
     classifiers=[
         'License :: OSI Approved :: MIT License',

@@ -7,6 +7,7 @@ Dynamic programming algorithm for decoding the states.
 Implementation according to Durbin, Biological sequence analysis [p. 57]
 """
 import numpy as np
+from cpython cimport bool
 cimport numpy as np
 cimport cython
 DTYPE = np.float
@@ -19,7 +20,16 @@ ctypedef np.int_t DTYPE_int
 @cython.wraparound(False)
 def viterbi(np.ndarray[DTYPE_t, ndim=2] emission_seq not None, np.ndarray[DTYPE_t, ndim=2] state_transition not None):
 	state_transition[0, 0] = 1
-	return _viterbi(emission_seq, np.log(state_transition.T))
+	llikelihood = 0.0
+	return _viterbi(emission_seq, np.log(state_transition.T), &llikelihood)
+
+@cython.boundscheck(False)
+@cython.profile(False)
+@cython.wraparound(False)
+def viterbi_p(np.ndarray[DTYPE_t, ndim=2] emission_seq not None, np.ndarray[DTYPE_t, ndim=2] state_transition not None):
+	state_transition[0, 0] = 1
+	llikelihood = 0.0
+	return _viterbi(emission_seq, np.log(state_transition.T), &llikelihood), llikelihood
 
 @cython.boundscheck(False)
 @cython.profile(False)
@@ -37,15 +47,15 @@ cdef max_argmax(np.ndarray[DTYPE_t, ndim=2] arr, np.ndarray[DTYPE_int, ndim=1] a
 @cython.profile(False)
 @cython.infer_types(False)
 @cython.wraparound(False)
-cdef np.ndarray[DTYPE_int, ndim=1] _viterbi(np.ndarray[DTYPE_t, ndim=2] emission_seq, np.ndarray[DTYPE_t, ndim=2] l_state_trans_mat_T):
+cdef np.ndarray[DTYPE_int, ndim=1] _viterbi(np.ndarray[DTYPE_t, ndim=2] emission_seq, np.ndarray[DTYPE_t, ndim=2] l_state_trans_mat_T,
+    DTYPE_t* path_likelihood):
 	cdef np.ndarray[DTYPE_int, ndim=2] ptr_mat = np.zeros((emission_seq.shape[0], emission_seq.shape[1]), dtype=INT_TYPE)
-	cdef np.ndarray[DTYPE_int, ndim=1] most_probable_path = np.zeros(emission_seq.shape[0], dtype=INT_TYPE)	
+	cdef np.ndarray[DTYPE_int, ndim=1] most_probable_path = np.zeros(emission_seq.shape[0], dtype=INT_TYPE)
 
 	emission_iterator = iter(emission_seq)
 	ptr_iterator = iter(ptr_mat)
 	#intial condition is begin state	
 	prev = next(emission_iterator) + 1+l_state_trans_mat_T[1:, 0]
-	
 	next(ptr_iterator)[...] = np.argmax(prev)
 	cdef int end_state = 0  # termination step
 	end_transition = l_state_trans_mat_T[end_state, 1:]
@@ -54,7 +64,6 @@ cdef np.ndarray[DTYPE_int, ndim=1] _viterbi(np.ndarray[DTYPE_t, ndim=2] emission
 	#recursion step
 	cdef int t
 	for t in range(0,emission_seq.shape[0]-1):
-		#for emission_symbol in emission_iterator:
 		max_argmax(prev+l_state_trans_mat_T, next(ptr_iterator), prev)
 		prev+=next(emission_iterator)
 
@@ -62,7 +71,8 @@ cdef np.ndarray[DTYPE_int, ndim=1] _viterbi(np.ndarray[DTYPE_t, ndim=2] emission
 	cdef int i
 	for i in range(emission_seq.shape[0]-1, 0, -1):
 		most_probable_path[i - 1] = ptr_mat[i, most_probable_path[i]]
-	
+
+	path_likelihood[0] = np.max(prev + end_transition)
 	return most_probable_path
 
 class BackwardForwardResult:
@@ -150,8 +160,6 @@ def forward_backward(state_trans_mat, emission_seq, model_end_state=False):
                        ['readonly'], 
                        ['readwrite','allocate', 'no_broadcast']],
              op_axes=[[-1,0,1], [-1,0,-1], [-1,0,1]])
-	
-	
 
 	#recursion step
 	for tup in backward_iterator:#emission_i, scale, backward_i
