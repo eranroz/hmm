@@ -24,7 +24,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='hmm_kit',
     ext_modules=ext_modules,
-    version='0.2.0',
+    version='0.3.0',
     description='Python toolkit for unsupervised learning of sequences of observations using HMM',
     long_description=long_description,
     long_description_content_type="text/markdown",
