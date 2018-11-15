@@ -79,6 +79,14 @@ class DiffCondition:
             return True
 
 
+def _transform_stop_condition(stop_condition):
+    if isinstance(stop_condition, int):
+        stop_condition = IteratorCondition(stop_condition)
+    elif stop_condition is None:
+        stop_condition = DiffCondition(100)
+    return stop_condition
+
+
 def bw_iter(symbol_seq, initial_model, stop_condition=3, constraint_func=None):
     """
     Estimates model parameters using Baum-Welch algorithm
@@ -92,10 +100,7 @@ def bw_iter(symbol_seq, initial_model, stop_condition=3, constraint_func=None):
     @return: HMM model estimation
     """
     new_model = deepcopy(initial_model)
-    if isinstance(stop_condition, int):
-        stop_condition = IteratorCondition(stop_condition)
-    elif stop_condition is None:
-        stop_condition = DiffCondition(100)
+    stop_condition = _transform_stop_condition(stop_condition)
 
     prob = float('-inf')
     print('Press ctrl+C for early termination of Baum-Welch training')
@@ -129,10 +134,7 @@ def bw_iter_multisequence(sequences, initial_model=None, stop_condition=3, const
     @return: HMM model estimation
     """
     new_model = deepcopy(initial_model)
-    if isinstance(stop_condition, int):
-        stop_condition = IteratorCondition(stop_condition)
-    elif stop_condition is None:
-        stop_condition = DiffCondition(100)
+    stop_condition = _transform_stop_condition(stop_condition)
 
     prob = float('-inf')
     print('Press ctrl+C for early termination of Baum-Welch training')
@@ -168,13 +170,11 @@ def bw_iter_multisequence(sequences, initial_model=None, stop_condition=3, const
     return new_model, prob
 
 
-def bw_iter_log(symbol_seq, initial_model, n_states=0, n_alphabet=0, stop_condition=None):
+def bw_iter_log(symbol_seq, initial_model, stop_condition=None, constraint_func=None):
     """
     Estimates model parameters using Baum-Welch algorithm with log backward forward
 
     @param stop_condition: stop condition for EM iterations. default is 10
-    @param n_alphabet: length of the alphabet
-    @param n_states: number of state
     @param symbol_seq: observations
     @param initial_model: Initial guess for model parameters
     @return: HMM model estimation
@@ -182,44 +182,14 @@ def bw_iter_log(symbol_seq, initial_model, n_states=0, n_alphabet=0, stop_condit
     @attention it is better to use scaled version as above. implementation is provided as a reference and for comparing
     to scaled version - but it is less tested, and may insert small inaccuracies
     """
-    if stop_condition is None:
-        stop_condition = IteratorCondition(10)
-
-    new_model = initial_model
+    stop_condition = _transform_stop_condition(stop_condition)
+    new_model = deepcopy(initial_model)
     prob = 0
     while stop_condition(prob):
         bw_output = new_model.forward_backward_log(symbol_seq)
-
-        # find new state transition matrix and emission matrix
-        new_state_transition = np.zeros((n_states, n_states))
-        l_emission = np.log(new_model.get_emission()[1:, :])
-        eb_symbols = np.array([l_emission[:, sym] for sym in symbol_seq])
-        eb_symbols += bw_output.backward
-
-        for k in range(1, n_states):
-            fb_em = eb_symbols[1:, :] + bw_output.forward[:-1, k - 1][:, None]
-            new_state_transition[k, 1:] = new_model.state_transition[k, 1:] * np.sum(np.exp(fb_em - bw_output.model_p),
-                                                                                     0)
-
-        new_state_transition[1:, 1:] /= np.sum(new_state_transition[1:, 1:], 1)[:, None]  # normalize
-        new_state_transition[0, 0] = 0
-
-        # start transition
-        new_state_transition[0, 1:] = np.exp(bw_output.state_p[0, :])
-        new_state_transition[0, 1:] /= np.sum(new_state_transition[0, 1:])
-
-        # end transition
-        new_state_transition[1:, 0] = np.exp(bw_output.forward[-1, :] + eb_symbols[-1, :] - bw_output.model_p)
-        new_state_transition[1:, 0] /= np.sum(new_state_transition[1:, 0])
-
-        new_emission = np.zeros((n_states, n_alphabet))
-        posterior = np.exp(bw_output.state_p)
-        for sym in range(0, n_alphabet):
-            where_sym = (symbol_seq == sym)
-            new_emission[1:, sym] = np.sum(posterior[where_sym], 0)
-
-        new_emission /= np.sum(new_emission, 1)[:, None]  # normalize
-        new_model = HMMModel.HMMModel(new_state_transition, new_emission)
+        new_model.maximize(symbol_seq, bw_output)
         prob = bw_output.model_p
+        if constraint_func:
+            constraint_func(new_model)
 
-    return new_model
+    return new_model, prob
