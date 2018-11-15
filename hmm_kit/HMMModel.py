@@ -524,7 +524,7 @@ class GaussianHMM(HMMModel):
         self._cov_sharing = cov_sharing
         emission = _GaussianEmission(mean_vars, mixture_coef)
         self.min_std = min_std
-        super().__init__(state_transition, emission, min_alpha=min_alpha)
+        super(GaussianHMM, self).__init__(state_transition, emission, min_alpha=min_alpha)
 
     def _collect_emission_stats(self, seq, gammas):
         state_norm = np.sum(gammas, 0)
@@ -734,7 +734,7 @@ class MultinomialHMM(HMMModel):
     def __init__(self, state_transition, emission_matrix, min_alpha=None):
         emission = MultinomialEmission(emission_matrix)
         self.num_features = emission_matrix.shape[1]
-        super().__init__(state_transition, emission, min_alpha=min_alpha)
+        super(MultinomialHMM, self).__init__(state_transition, emission, min_alpha=min_alpha)
 
     def _maximize_emission(self, seq, gammas):
         """
